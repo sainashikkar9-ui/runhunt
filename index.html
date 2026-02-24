@@ -51,8 +51,12 @@ Remember that in any condition of above, the granny's speed should not be >= use
 
     #game{
       position:relative;
-      width:var(--game-w);
-      height:var(--game-h);
+      /* keep a consistent gameplay aspect ratio (1200x600 == 2:1)
+         but allow the game to shrink to fit mobile landscape screens */
+      width:min(1100px, 96vw);
+      aspect-ratio: 2 / 1;
+      height:auto;
+      max-height:92vh;
       background:linear-gradient(180deg,#2b2b2b,#222);
       border:4px solid #0ff;
       overflow:hidden;
@@ -287,8 +291,10 @@ Remember that in any condition of above, the granny's speed should not be >= use
         width:100vw;
       }
       #game{
-        width:100vw !important;
-        height:60vh !important;
+        width:96vw !important;
+        aspect-ratio:2/1 !important;
+        height:auto !important;
+        max-height:72vh !important;
         max-width:100%;
       }
       #hud{
@@ -305,7 +311,9 @@ Remember that in any condition of above, the granny's speed should not be >= use
     @media (max-width:600px){
       h2{ font-size:16px; margin:5px 0; }
       #game{
-        height:50vh !important;
+        width:98vw !important;
+        aspect-ratio:2/1 !important;
+        max-height:78vh !important;
       }
       #hud{
         width:95vw;
@@ -407,9 +415,27 @@ Remember that in any condition of above, the granny's speed should not be >= use
     const quotesEl = document.getElementById('quotes');
     const notification = document.getElementById('notification');
 
-    const GAME_W = game.clientWidth;
-    const GAME_H = game.clientHeight;
-    const SIZE = 50; // entity size (matches player size)
+    let GAME_W = game.clientWidth;
+    let GAME_H = game.clientHeight;
+    let SIZE = 50; // entity size (will be updated to fit viewport)
+
+    // Update size variables based on current rendered game area.
+    function updateSizes(){
+      GAME_W = Math.max(200, game.clientWidth);
+      GAME_H = Math.max(120, game.clientHeight);
+      // entity size scaled to viewport (min 28px)
+      SIZE = Math.max(28, Math.round(Math.min(GAME_W, GAME_H) * 0.08));
+      document.documentElement.style.setProperty('--player-size', SIZE + 'px');
+      // reposition door to remain at right edge
+      if (doorEl){
+        doorEl.style.left = (GAME_W - 36) + 'px';
+        doorEl.style.top = (GAME_H/2 - 30) + 'px';
+      }
+    }
+
+    // recalc on resize/orientation change
+    window.addEventListener('resize', () => { updateSizes(); safePlaceContainers(); updatePositions(); });
+    window.addEventListener('orientationchange', () => { setTimeout(updateSizes, 120); });
 
     // base speeds
     const BASE_PLAYER_SPEED = 10;
@@ -560,10 +586,11 @@ Remember that in any condition of above, the granny's speed should not be >= use
        Generate random maze on game start
        (DISABLED - using static walls from HTML for stability)
        */
-     // generateRandomWalls();
-     // Use generated walls by default: create a fresh mixed map and reposition safe items
-     generateRandomWalls();
-     safePlaceContainers();
+    // generateRandomWalls();
+    // Use generated walls by default: create a fresh mixed map and reposition safe items
+    updateSizes();
+    generateRandomWalls();
+    safePlaceContainers();
 
     /* -------------------------
        Initialize containers with random digits
