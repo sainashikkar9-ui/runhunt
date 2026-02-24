@@ -1152,17 +1152,39 @@ Remember that in any condition of above, the granny's speed should not be >= use
       joystickEl.style.alignItems = 'center';
       joystickEl.style.justifyContent = 'center';
 
+      // track active pointerId when using pointer events
+      let activePointerId = null;
+
       const handleJoystickStart = (e) => {
+        if (e.preventDefault) e.preventDefault();
         joystickActive = true;
+        // if pointer event, remember pointerId and capture it so we get moves outside element
+        if (e.pointerId !== undefined){
+          activePointerId = e.pointerId;
+          try{ joystickEl.setPointerCapture && joystickEl.setPointerCapture(activePointerId); }catch(err){}
+        }
         updateJoystickPosition(e);
       };
 
       const handleJoystickMove = (e) => {
+        // ignore moves when joystick not active
         if (!joystickActive) return;
+        // if pointer event and it's not the active pointer, ignore
+        if (e.pointerId !== undefined && activePointerId !== null && e.pointerId !== activePointerId) return;
         updateJoystickPosition(e);
       };
 
       const handleJoystickEnd = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        // if pointer event, only end if matching active pointer
+        if (e && e.pointerId !== undefined && activePointerId !== null && e.pointerId !== activePointerId){
+          return;
+        }
+        // release pointer capture if used
+        if (activePointerId !== null){
+          try{ joystickEl.releasePointerCapture && joystickEl.releasePointerCapture(activePointerId); }catch(err){}
+          activePointerId = null;
+        }
         joystickActive = false;
         joystickX = 0;
         joystickY = 0;
@@ -1171,13 +1193,26 @@ Remember that in any condition of above, the granny's speed should not be >= use
       };
 
       function updateJoystickPosition(e){
-        e.preventDefault();
-        const touch = e.touches ? e.touches[0] : e;
+        // determine pointer coordinates from touch/pointer/mouse
+        if (e && e.preventDefault) e.preventDefault();
+        let clientX, clientY;
+        if (e.touches && e.touches.length){
+          // prefer the first touch
+          clientX = e.touches[0].clientX;
+          clientY = e.touches[0].clientY;
+        } else if (e.changedTouches && e.changedTouches.length){
+          clientX = e.changedTouches[0].clientX;
+          clientY = e.changedTouches[0].clientY;
+        } else {
+          clientX = e.clientX;
+          clientY = e.clientY;
+        }
+
         const rect = joystickEl.getBoundingClientRect();
         const centerX = rect.width / 2;
         const centerY = rect.height / 2;
-        const x = touch.clientX - rect.left - centerX;
-        const y = touch.clientY - rect.top - centerY;
+        const x = clientX - rect.left - centerX;
+        const y = clientY - rect.top - centerY;
         const distance = Math.hypot(x, y);
         const maxDistance = rect.width / 2 - 25;
 
@@ -1192,10 +1227,11 @@ Remember that in any condition of above, the granny's speed should not be >= use
         joystickThumb.style.transform = `translate(calc(-50% + ${joystickX}px), calc(-50% + ${joystickY}px))`;
 
         // Update key states based on joystick direction
-        keysDown.w = joystickY < -15;
-        keysDown.s = joystickY > 15;
-        keysDown.a = joystickX < -15;
-        keysDown.d = joystickX > 15;
+        const dead = 12; // smaller dead zone for responsiveness
+        keysDown.w = joystickY < -dead;
+        keysDown.s = joystickY > dead;
+        keysDown.a = joystickX < -dead;
+        keysDown.d = joystickX > dead;
       }
 
       // Touch listeners with passive:false so we can call preventDefault on Android
