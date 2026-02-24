@@ -1,0 +1,1273 @@
+<!--Please make an html, css, js chasing and escaping game like granny! SImple but engaging.Nice try bro, just want you to modify one thing that the granny gets obstructed if we come opposite her with the obstacle at the middle. She stops. Just do one thing that granny would slide off the obstacles and then continuously chase use !Also add one brilliant idea...
+1.Make the games light go off randomly for 5s, to add crisp. 2.let there be three containers which are initially hidden and are only revealed when we cross enter into their 10px wide radius. 3.Let there be random single digits each in three boxes which would be randomed while everytime we reload or start new game. 4.Lastly let there be a main door at the borders of the game screen which would unlock only when we reach near it and enter the 3 digits found from the three containers in a particular order only.... But don't let user type that code by hand; instead remember each digit in the memory when the user unlocks each container and when reached the main door, let the granny still continuously chase but another small screen should pop out on the same screen which consists remembered digits written and have a shuffle button when clicked by the user should shuffle the positions of the digits and when correct order is achieved then only user would get winning message on the screen.
+- In addition, also give some random quotes for the fun in the text area outside the screen where you say you completed the game.
+Great Work Buddy!!! You are a GOAT Game developer.
+Another addition of features :
+4. Increase obstacles. Let most obstacles blocking us but not granny and few obstacles blocking both.
+5.When light goes of increase granny's speed by 50% and reduce our speed by 25% but still our speed should be greater than granny. And as the light comes again set their speeds to again normal!
+6.Make a "potion of lethargy" appear in the game on random spots every random time but for 3 seconds only. If touched, its effect would be that granny's speed would reduce by 35% for 10 seconds.
+7.Make a "potion of brisk" appear in the game on random spots every random time but for 3 seconds only. Never match the timing of appearing potion of brisk and lethargy at a single time! If touched, its effect would be that user's speed would increase by 25% for 5 seconds only.
+8.Also do it for user that if it is obstructed by an obstacle and if arrows button facing against
+ the obstacle is pressed, make the user also slide parallel to the obstacle (similar as the algorithm for granny sliding away from obstacle.).
+Remember that in any condition of above, the granny's speed should not be >= user's speed.
+9.That code shuffling main gate screen should only appear when we touch the main door.
+10.Let the obstacles which can be crossed by granny in lighter and cannot be crossed by granny in darker.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Granny Chase Puzzle Adventure</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <style>
+    :root{
+      --game-w:1200px;
+      --game-h:600px;
+      --player-size:50px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      padding:0;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:12px;
+      background:#0b0b0f;
+      color:#e9f6f6;
+      font-family:Inter,system-ui,Segoe UI,Arial;
+      overflow-x:hidden;
+      touch-action:manipulation;
+    }
+
+    /* Game container */
+    #gameWrap{
+      display:flex;
+      gap:16px;
+      align-items:flex-start;
+    }
+
+    #game{
+      position:relative;
+      width:var(--game-w);
+      height:var(--game-h);
+      background:linear-gradient(180deg,#2b2b2b,#222);
+      border:4px solid #0ff;
+      overflow:hidden;
+      box-shadow:0 8px 30px rgba(0,0,0,0.7);
+    }
+
+    /* Entities */
+    .player, .granny, .container, .door, .potion {
+      position:absolute;
+      width:var(--player-size);
+      height:var(--player-size);
+      border-radius:6px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:700;
+      user-select:none;
+      pointer-events:none;
+    }
+
+    .player{
+      background:linear-gradient(180deg,#9fff6b,#2fb400);
+      color:#042a00;
+      box-shadow:0 0 12px rgba(80,255,120,0.12), inset 0 -4px 8px rgba(0,0,0,0.2);
+      background-image:url('images/player.png');
+      background-size:cover;
+      background-position:center;
+      border:none;
+      box-shadow:0 0 12px rgba(80,255,120,0.12);
+      transition:filter 0.2s ease;
+    }
+    #darkOverlay ~ * .player{
+      filter:drop-shadow(0 0 6px rgba(159,255,107,0.6)) brightness(0.8);
+    }
+
+    .granny{
+      background:linear-gradient(180deg,#ff6b6b,#b30000);
+      color:#fff;
+      box-shadow:0 0 18px rgba(255,80,80,0.12);
+    }
+
+    .container{
+      background:gold;
+      color:#222;
+      border-radius:6px;
+      display:none; /* hidden until near */
+      font-size:14px;
+      box-shadow:0 0 8px rgba(255,200,0,0.12);
+    }
+
+    .door{
+      background:linear-gradient(180deg,#00f0ff,#00a0ff);
+      width:36px;
+      height:60px;
+      border-radius:6px;
+      left:calc(100% - 36px);
+      top:calc(50% - 30px);
+      display:block;
+      pointer-events:none;
+      box-shadow:0 0 18px rgba(0,200,255,0.12);
+    }
+
+    /* Walls: wallA blocks player only in light; in dark it blocks granny too */
+    .wall{
+      position:absolute;
+      background:#555;
+      border-radius:4px;
+    }
+    .wallA{ background:#c0c0c0; } /* lighter color - granny can pass in light */
+    .wallB{ background:#1a1a1a; } /* darker color - blocks both */
+
+    /* Potions */
+    .potion{
+      width:28px;
+      height:28px;
+      border-radius:50%;
+      display:none;
+      pointer-events:none;
+      font-size:12px;
+      color:#fff;
+      box-shadow:0 0 12px rgba(255,255,255,0.06);
+      transition:all 0.2s ease;
+    }
+    .potion.lethargy{ background:rebeccapurple; }
+    .potion.brisk{ background:darkorange; }
+    #darkOverlay .potion{
+      box-shadow:0 0 80px rgba(255,255,255,1), 0 0 40px rgba(255,255,255,0.9), inset 0 0 30px rgba(255,255,255,0.8);
+      filter:drop-shadow(0 0 40px currentColor) drop-shadow(0 0 20px currentColor) brightness(5) saturate(1.5);
+    }
+
+    /* Dark overlay for lights off */
+    #darkOverlay{
+      position:absolute;
+      left:0; top:0;
+      width:100%; height:100%;
+      background:#000;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity 0.25s linear;
+      z-index:40;
+    }
+
+    /* Joystick for mobile/touch devices */
+    #joystick{
+      display:none;
+      position:absolute;
+      bottom:20px;
+      left:20px;
+      z-index:50;
+      width:100px;
+      height:100px;
+      background:rgba(255,255,255,0.1);
+      border:2px solid #0ff;
+      border-radius:50%;
+      pointer-events:auto;
+    }
+    #joystickThumb{
+      position:absolute;
+      width:50px;
+      height:50px;
+      background:rgba(0,255,255,0.3);
+      border:2px solid #0ff;
+      border-radius:50%;
+      top:50%;
+      left:50%;
+      transform:translate(-50%, -50%);
+      pointer-events:auto;
+    }
+
+    /* Achievement notification */
+    #notification{
+      display:none;
+      position:fixed;
+      top:50%;
+      left:50%;
+      transform:translate(-50%, -50%);
+      background:linear-gradient(135deg, #ff00ff, #00ffff);
+      color:#000;
+      padding:30px 50px;
+      border-radius:15px;
+      font-size:28px;
+      font-weight:900;
+      text-align:center;
+      z-index:100;
+      box-shadow:0 0 50px rgba(255,0,255,0.8), 0 0 100px rgba(0,255,255,0.6);
+      border:4px solid #fff;
+      animation:achievementPop 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      max-width:80vw;
+      word-wrap:break-word;
+    }
+    @keyframes achievementPop{
+      0%{ transform:translate(-50%, -50%) scale(0) rotate(-20deg); opacity:0; }
+      50%{ transform:translate(-50%, -50%) scale(1.1) rotate(5deg); }
+      100%{ transform:translate(-50%, -50%) scale(1) rotate(0deg); opacity:1; }
+    }
+    @keyframes achievementPulse{
+      0%, 100%{ box-shadow:0 0 50px rgba(255,0,255,0.8), 0 0 100px rgba(0,255,255,0.6); }
+      50%{ box-shadow:0 0 80px rgba(255,0,255,1), 0 0 150px rgba(0,255,255,1); }
+    }
+
+    /* Popup for code shuffle */
+    #popup{
+      position:absolute;
+      width:320px;
+      height:180px;
+      left:calc(50% - 160px);
+      top:calc(50% - 90px);
+      background:#111;
+      border:2px solid #0ff;
+      display:none;
+      z-index:60;
+      padding:12px;
+      box-shadow:0 10px 40px rgba(0,0,0,0.6);
+      flex-direction:column;
+      gap:8px;
+      align-items:center;
+      justify-content:center;
+    }
+    #digits{ display:flex; gap:10px; font-size:22px; }
+    .digitBox{
+      width:56px; height:56px;
+      background:#222;
+      border:2px solid #0ff;
+      display:flex; align-items:center; justify-content:center;
+      border-radius:8px;
+      font-weight:700;
+      cursor:pointer;
+      user-select:none;
+    }
+    #shuffleBtn{
+      padding:8px 14px;
+      background:#0ff;
+      color:#022;
+      border:none;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:700;
+    }
+    #regenBtn{
+      padding:8px 14px;
+      background:#ff8c00;
+      color:#022;
+      border:none;
+      border-radius:8px;
+      cursor:pointer;
+      font-weight:700;
+      margin-top:6px;
+    }
+
+    /* HUD / side panel */
+    #hud{
+      width:260px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      align-items:flex-start;
+    }
+    #message{ font-size:14px; min-height:36px; }
+    #scoreboard{ font-size:14px; }
+    #quotes{ margin-top:8px; font-size:13px; min-height:48px; color:#cfe; }
+
+    /* Mobile/Tablet responsive */
+    @media (max-width:1024px){
+      :root{
+        --game-w:100vw;
+        --game-h:auto;
+      }
+      body{ padding:10px; }
+      #gameWrap{
+        flex-direction:column;
+        align-items:center;
+        width:100vw;
+      }
+      #game{
+        width:100vw !important;
+        height:60vh !important;
+        max-width:100%;
+      }
+      #hud{
+        width:90vw;
+        margin-top:10px;
+      }
+      #joystick{
+        display:block;
+      }
+      h2{
+        font-size:18px;
+      }
+    }
+    @media (max-width:600px){
+      h2{ font-size:16px; margin:5px 0; }
+      #game{
+        height:50vh !important;
+      }
+      #hud{
+        width:95vw;
+        font-size:12px;
+      }
+      #message, #scoreboard, #quotes{
+        font-size:12px;
+      }
+      #joystick{
+        width:80px;
+        height:80px;
+        bottom:10px;
+        left:10px;
+      }
+      #joystickThumb{
+        width:40px;
+        height:40px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2 style="margin:0 0 6px 0">Granny Chase Puzzle Adventure</h2>
+
+  <div id="gameWrap">
+    <div id="game" aria-label="game area">
+      <!-- Entities -->
+      <div class="player" id="player" style="left:100px; top:100px;"></div>
+      <div class="granny" id="granny" style="left:1000px; top:450px;">G</div>
+
+      <!-- Hidden containers (digits) -->
+      <div class="container" id="c1" style="left:200px; top:150px;"></div>
+      <div class="container" id="c2" style="left:600px; top:400px;"></div>
+      <div class="container" id="c3" style="left:900px; top:120px;"></div>
+
+      <!-- Door at right border -->
+      <div class="door" id="door"></div>
+
+      <!-- Walls: mix of wallA (player-only in light) and wallB (both) -->
+      <div class="wall wallB" style="left:300px; top:200px; width:200px; height:40px;"></div>
+      <div class="wall wallB" style="left:700px; top:350px; width:40px; height:150px;"></div>
+      <div class="wall wallA" style="left:400px; top:80px; width:180px; height:40px;"></div>
+      <div class="wall wallA" style="left:150px; top:380px; width:200px; height:40px;"></div>
+      <div class="wall wallB" style="left:50px; top:200px; width:40px; height:150px;"></div>
+      <div class="wall wallA" style="left:550px; top:50px; width:40px; height:120px;"></div>
+      <div class="wall wallB" style="left:800px; top:250px; width:40px; height:120px;"></div>
+
+      <!-- Potions -->
+      <div class="potion lethargy" id="pL" title="Lethargy"></div>
+      <div class="potion brisk" id="pB" title="Brisk"></div>
+
+      <!-- Dark overlay -->
+      <div id="darkOverlay"></div>
+
+      <!-- Popup for code shuffle -->
+      <div id="popup">
+        <div style="font-weight:700">Arrange the digits in the correct order</div>
+        <div id="digits"></div>
+        <button id="shuffleBtn">Shuffle</button>
+      </div>
+
+      <!-- Joystick for mobile/touch devices -->
+      <div id="joystick">
+        <div id="joystickThumb"></div>
+      </div>
+    </div>
+
+    <!-- Achievement Notification -->
+    <div id="notification"></div>
+
+    <!-- HUD / side panel -->
+    <div id="hud">
+      <div id="message">Collect 3 hidden containers (get digits), then touch the door to solve the code. Granny never stops.</div>
+      <div id="scoreboard">Keys: 0 | Time: 0s | Player: 10 | Granny: 2</div>
+      <div id="quotes">Victory quotes will appear here when you win.</div>
+      <div style="font-size:12px;color:#9fd">Controls: W/A/S/D to move. When blocked, hold key to slide along obstacles.</div>
+      <button id="regenBtn">Regenerate Map</button>
+    </div>
+  </div>
+
+  <script>
+    /* -------------------------
+       Game constants & state
+       ------------------------- */
+    const game = document.getElementById('game');
+    const playerEl = document.getElementById('player');
+    const grannyEl = document.getElementById('granny');
+    const doorEl = document.getElementById('door');
+    const containers = [document.getElementById('c1'), document.getElementById('c2'), document.getElementById('c3')];
+    let walls = Array.from(document.querySelectorAll('.wall'));
+    const popup = document.getElementById('popup');
+    const digitsDiv = document.getElementById('digits');
+    const shuffleBtn = document.getElementById('shuffleBtn');
+    const darkOverlay = document.getElementById('darkOverlay');
+    const pL = document.getElementById('pL'); // lethargy potion
+    const pB = document.getElementById('pB'); // brisk potion
+    const message = document.getElementById('message');
+    const scoreboard = document.getElementById('scoreboard');
+    const quotesEl = document.getElementById('quotes');
+    const notification = document.getElementById('notification');
+
+    const GAME_W = game.clientWidth;
+    const GAME_H = game.clientHeight;
+    const SIZE = 50; // entity size (matches player size)
+
+    // base speeds
+    const BASE_PLAYER_SPEED = 10;
+    const BASE_GRANNY_SPEED = 3.2;
+
+    // dynamic speeds (may be modified by potions / lights)
+    let playerSpeed = BASE_PLAYER_SPEED;
+    let grannySpeed = BASE_GRANNY_SPEED;
+
+    // state
+    let player = { x: 100, y: 100 };
+    let granny = { x: 1000, y: 450 };
+    let keysCollected = 0;
+    let collectedDigits = []; // order of discovery (memory)
+    let digitsOriginalOrder = []; // copy for checking
+    let timeSurvived = 0;
+    let gameOver = false;
+    let popupOpen = false;
+
+    // potions & timers
+    let potionActive = { lethargy:false, brisk:false };
+    let potionTimers = { lethargy:0, brisk:0 };
+    let potionSpawnTimer = null;
+
+    // lights
+    let lightsOff = false;
+    let lightsTimer = null;
+
+    // victory quotes
+    const QUOTES = [
+      "You slipped past Granny — legend status unlocked.",
+      "Victory tastes like stolen cookies and adrenaline.",
+      "You escaped. Tell the story, but skip the details.",
+      "Granny's still looking. You ran faster than fear.",
+      "You won — now go hide the evidence."
+    ];
+
+    // keys for movement
+    const keysDown = { w:false, s:false, a:false, d:false };
+
+    // Detect Android device
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const isMobile = /iPhone|iPad|iPod|Mobile|Android/i.test(navigator.userAgent);
+    const joystickEl = document.getElementById('joystick');
+    const joystickThumb = document.getElementById('joystickThumb');
+    let joystickActive = false;
+    let joystickX = 0, joystickY = 0;
+
+    /* -------------------------
+       Utility helpers
+       ------------------------- */
+    function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+    function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+    function dist(ax,ay,bx,by){ return Math.hypot(ax-bx, ay-by); }
+
+    /* -------------------------
+       Generate random maze/walls
+       ------------------------- */
+    function generateRandomWalls(){
+      // Clear existing walls from DOM
+      document.querySelectorAll('.wall').forEach(w => w.remove());
+      walls = [];
+      
+      const wallCount = 8; // number of random walls
+      for (let i = 0; i < wallCount; i++){
+        const w = document.createElement('div');
+        w.className = 'wall';
+        // ~60% wallA (player-only in light), ~40% wallB (blocks both)
+        if (Math.random() < 0.6){
+          w.classList.add('wallA');
+        } else {
+          w.classList.add('wallB');
+        }
+        
+        // Random dimensions
+        const isHorizontal = Math.random() < 0.5;
+        let width, height;
+        if (isHorizontal){
+          width = randInt(100, 200);
+          height = randInt(20, 50);
+        } else {
+          width = randInt(20, 50);
+          height = randInt(100, 200);
+        }
+        
+        // Random position with collision checking
+        let validPos = false;
+        let attempts = 0;
+        while (!validPos && attempts < 50){
+          const x = randInt(60, GAME_W - width - 60);
+          const y = randInt(60, GAME_H - height - 60);
+          
+          // Don't block door area
+          if (Math.abs(x - (GAME_W - 36)) < 120 && Math.abs(y - (GAME_H/2 - 30)) < 120){
+            attempts++;
+            continue;
+          }
+          
+          // Don't block player/granny spawn areas
+          if (dist(x, y, 100, 100) < 100 || dist(x, y, 1000, 450) < 100){
+            attempts++;
+            continue;
+          }
+          
+          // Check collision with existing walls
+          let collides = false;
+          for (const wall of walls){
+            const wx = parseInt(wall.style.left);
+            const wy = parseInt(wall.style.top);
+            const ww = wall.offsetWidth;
+            const wh = wall.offsetHeight;
+            const buf = 40;
+            if (x < wx + ww + buf && x + width + buf > wx &&
+                y < wy + wh + buf && y + height + buf > wy){
+              collides = true;
+              break;
+            }
+          }
+          
+          if (!collides){
+            w.style.left = x + 'px';
+            w.style.top = y + 'px';
+            w.style.width = width + 'px';
+            w.style.height = height + 'px';
+            game.appendChild(w);
+            walls.push(w);
+            validPos = true;
+          }
+          attempts++;
+        }
+      }
+    }
+
+    function showNotification(message, duration = 3000){
+      notification.textContent = message;
+      notification.style.display = 'block';
+      notification.style.animation = 'none';
+      setTimeout(() => {
+        notification.style.animation = 'achievementPop 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55)';
+      }, 10);
+      
+      setTimeout(() => {
+        notification.style.display = 'none';
+      }, duration);
+    }
+
+    /* -------------------------
+       Generate random maze on game start
+       (DISABLED - using static walls from HTML for stability)
+       */
+     // generateRandomWalls();
+     // Use generated walls by default: create a fresh mixed map and reposition safe items
+     generateRandomWalls();
+     safePlaceContainers();
+
+    /* -------------------------
+       Initialize containers with random digits
+       ------------------------- */
+    containers.forEach((c, idx) => {
+      c.dataset.digit = String(randInt(0,9));
+      c.style.display = 'none'; // hidden until within 10px radius
+      // show digit text when revealed
+      c.textContent = c.dataset.digit;
+    });
+
+    /* -------------------------
+       Place potions off-screen initially
+       ------------------------- */
+    function hidePotion(el){ el.style.display='none'; el.dataset.active='false'; }
+    hidePotion(pL); hidePotion(pB);
+
+    /* -------------------------
+       Collision detection with walls
+       - who: 'player' or 'granny'
+       - wallA blocks player in light; in dark it blocks granny too
+       - wallB blocks both always
+       Returns true if (x,y) collides with any blocking wall for that who.
+       ------------------------- */
+    function collidesWithWall(x,y,who){
+      for(const w of walls){
+        const wx = parseInt(w.style.left);
+        const wy = parseInt(w.style.top);
+        const ww = w.offsetWidth;
+        const wh = w.offsetHeight;
+        if (x < wx + ww && x + SIZE > wx && y < wy + wh && y + SIZE > wy){
+          // wallA: in light, granny can pass; in dark, it blocks granny too
+          if (w.classList.contains('wallA')){
+            if (who === 'granny'){
+              // in dark, wallA blocks granny; in light, granny can pass
+              if (lightsOff) return true;
+              else continue; // granny can pass in light
+            }
+            // if player, wallA blocks player always
+            return true;
+          }
+          // wallB blocks both
+          if (w.classList.contains('wallB')) return true;
+          // default block
+          return true;
+        }
+      }
+      return false;
+    }
+
+    /* -------------------------
+       Update DOM positions
+       ------------------------- */
+    function updatePositions(){
+      playerEl.style.left = player.x + 'px';
+      playerEl.style.top = player.y + 'px';
+      grannyEl.style.left = granny.x + 'px';
+      grannyEl.style.top = granny.y + 'px';
+    }
+
+    /* -------------------------
+       Player movement logic with sliding
+       - When arrow pressed and blocked, attempt to slide parallel:
+         try horizontal move, then vertical move.
+       ------------------------- */
+    function movePlayerFromInput(){
+      if (gameOver) return;
+      let dx = 0, dy = 0;
+      if (keysDown.w) dy -= playerSpeed;
+      if (keysDown.s) dy += playerSpeed;
+      if (keysDown.a) dx -= playerSpeed;
+      if (keysDown.d) dx += playerSpeed;
+
+      if (dx === 0 && dy === 0) return;
+
+      let newX = clamp(player.x + dx, 0, GAME_W - SIZE);
+      let newY = clamp(player.y + dy, 0, GAME_H - SIZE);
+
+      if (!collidesWithWall(newX, newY, 'player')){
+        player.x = newX; player.y = newY;
+      } else {
+        // sliding behavior: try horizontal then vertical
+        if (!collidesWithWall(newX, player.y, 'player')){
+          player.x = newX;
+        } else if (!collidesWithWall(player.x, newY, 'player')){
+          player.y = newY;
+        } else {
+          // both blocked: attempt small perpendicular nudge to simulate sliding
+          // try small steps along perpendicular axes
+          const tryStep = 6;
+          if (!collidesWithWall(player.x + tryStep, player.y, 'player')) player.x += tryStep;
+          else if (!collidesWithWall(player.x - tryStep, player.y, 'player')) player.x -= tryStep;
+          else if (!collidesWithWall(player.x, player.y + tryStep, 'player')) player.y += tryStep;
+          else if (!collidesWithWall(player.x, player.y - tryStep, 'player')) player.y -= tryStep;
+        }
+      }
+    }
+
+    /* -------------------------
+       Granny AI movement with sliding
+       - Granny moves toward player by sign of dx/dy scaled by grannySpeed
+       - If blocked, attempt to slide horizontally or vertically (same logic)
+       ------------------------- */
+    function moveGranny(){
+      if (gameOver) return;
+      // compute direction toward player
+      const dx = player.x - granny.x;
+      const dy = player.y - granny.y;
+      const sx = Math.sign(dx);
+      const sy = Math.sign(dy);
+
+      // attempt diagonal move
+      let newGX = clamp(granny.x + sx * grannySpeed, 0, GAME_W - SIZE);
+      let newGY = clamp(granny.y + sy * grannySpeed, 0, GAME_H - SIZE);
+
+      if (!collidesWithWall(newGX, newGY, 'granny')){
+        granny.x = newGX; granny.y = newGY;
+      } else {
+        // slide: try horizontal then vertical
+        if (!collidesWithWall(newGX, granny.y, 'granny')){
+          granny.x = newGX;
+        } else if (!collidesWithWall(granny.x, newGY, 'granny')){
+          granny.y = newGY;
+        } else {
+          // if both blocked, attempt perpendicular moves (slide along obstacle)
+          const perpMoves = [
+            { x: sy * grannySpeed, y: 0 },
+            { x: -sy * grannySpeed, y: 0 },
+            { x: 0, y: sx * grannySpeed },
+            { x: 0, y: -sx * grannySpeed },
+            { x: sy * grannySpeed * 2, y: 0 },
+            { x: -sy * grannySpeed * 2, y: 0 },
+            { x: 0, y: sx * grannySpeed * 2 },
+            { x: 0, y: -sx * grannySpeed * 2 },
+          ];
+          
+          let moved = false;
+          for (const move of perpMoves){
+            const testX = clamp(granny.x + move.x, 0, GAME_W - SIZE);
+            const testY = clamp(granny.y + move.y, 0, GAME_H - SIZE);
+            if (!collidesWithWall(testX, testY, 'granny')){
+              granny.x = testX;
+              granny.y = testY;
+              moved = true;
+              break;
+            }
+          }
+          
+          // if still stuck, try all 8 directions with small steps
+          if (!moved){
+            const allDirections = [
+              { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
+              { x: 1, y: 1 }, { x: 1, y: -1 }, { x: -1, y: 1 }, { x: -1, y: -1 }
+            ];
+            const tryStep = Math.ceil(grannySpeed);
+            for (const dir of allDirections){
+              const testX = clamp(granny.x + dir.x * tryStep, 0, GAME_W - SIZE);
+              const testY = clamp(granny.y + dir.y * tryStep, 0, GAME_H - SIZE);
+              if (!collidesWithWall(testX, testY, 'granny')){
+                granny.x = testX;
+                granny.y = testY;
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    /* -------------------------
+       Check collisions: granny catches player
+       ------------------------- */
+    function checkCollision(){
+      if (gameOver) return;
+      const d = dist(player.x, player.y, granny.x, granny.y);
+      if (d < SIZE - 6){ // caught
+        gameOver = true;
+        message.textContent = "😱 Granny caught you! Game Over!";
+        popup.style.display = 'none';
+        darkOverlay.style.opacity = 0;
+        showNotification('💀 GAME OVER! 💀\nGranny caught you!', 4000);
+        showFinal(false);
+      }
+    }
+
+    /* -------------------------
+       Reveal & collect containers
+       - containers are revealed when player is within 10px radius (center to center)
+       - when player touches container (distance < SIZE), it is collected and digit stored
+       ------------------------- */
+    function checkContainers(){
+      containers.forEach((c, idx) => {
+        const cx = parseInt(c.style.left);
+        const cy = parseInt(c.style.top);
+        const centerDist = dist(player.x, player.y, cx, cy);
+        // reveal when within 10px radius (center-to-center)
+        if (centerDist < 10 + SIZE/2 && c.style.display === 'none'){
+          c.style.display = 'flex';
+        }
+        // collect when touching
+        if (centerDist < SIZE){
+          if (c.dataset.collected !== 'true'){
+            c.dataset.collected = 'true';
+            keysCollected++;
+            collectedDigits.push(c.dataset.digit);
+            digitsOriginalOrder = [...collectedDigits]; // keep memory order
+            c.style.opacity = 0.6;
+            c.style.transform = 'scale(0.9)';
+            message.textContent = `Found digit ${c.dataset.digit}! (${keysCollected}/3)`;
+            updateScoreboard();
+          }
+        }
+      });
+    }
+
+    /* -------------------------
+       Door interaction & popup
+       - Popup should appear ONLY when player touches the main door (collision), not just proximity
+       - When touching door and has 3 digits, open popup showing collected digits
+       - Popup shows digits in collected order; user can shuffle displayed digits until they match original order
+       - Granny continues to chase while popup is open
+       ------------------------- */
+    function checkDoor(){
+      const doorX = parseInt(doorEl.style.left) || (GAME_W - 36);
+      const doorY = parseInt(doorEl.style.top) || (GAME_H/2 - 30);
+      // require actual touch/collision with door (player rectangle intersects door rectangle)
+      const px = player.x, py = player.y;
+      const dw = doorEl.offsetWidth, dh = doorEl.offsetHeight;
+      const isTouchingDoor = px < doorX + dw && px + SIZE > doorX && py < doorY + dh && py + SIZE > doorY;
+      
+      if (isTouchingDoor){
+        // player is touching the door
+        if (keysCollected === 3){
+          if (!popupOpen && !gameOver){
+            openPopup();
+          }
+        } else if (keysCollected < 3){
+          if (popupOpen) closePopup(); // close if they move away
+          message.textContent = `Door is locked. You need 3 digits. (${keysCollected}/3)`;
+        }
+      } else {
+        // player is NOT touching the door - close popup if it's open
+        if (popupOpen){
+          closePopup();
+        }
+      }
+    }
+
+    function openPopup(){
+      popupOpen = true;
+      popup.style.display = 'flex';
+      // prepare digits display (start with collected order)
+      renderDigits(collectedDigits);
+    }
+
+    function closePopup(){
+      popupOpen = false;
+      popup.style.display = 'none';
+    }
+
+    function renderDigits(arr){
+      // arr: array of digits to display
+      digitsDiv.innerHTML = '';
+      arr.forEach((d, i) => {
+        const box = document.createElement('div');
+        box.className = 'digitBox';
+        box.textContent = d;
+        box.dataset.index = i;
+        digitsDiv.appendChild(box);
+      });
+    }
+
+    function shuffleDisplayed(){
+      // shuffle the displayed digits visually
+      const displayed = Array.from(digitsDiv.children).map(n => n.textContent);
+      // Fisher-Yates
+      for (let i = displayed.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i + 1));
+        [displayed[i], displayed[j]] = [displayed[j], displayed[i]];
+      }
+      renderDigits(displayed);
+      // check if matches original order
+      const match = displayed.join('') === digitsOriginalOrder.join('');
+      if (match){
+        // win
+        gameOver = true;
+        message.textContent = "🎉 Correct order! You escaped Granny!";
+        showNotification('🏆 YOU WON! 🏆\nCONGRATULATIONS!\nYOU ESCAPED!', 5000);
+        closePopup();
+        showFinal(true);
+      }
+    }
+
+    shuffleBtn.addEventListener('click', () => {
+      if (gameOver) return;
+      shuffleDisplayed();
+    });
+
+    /* -------------------------
+       Potions spawning & effects
+       - Potions appear randomly for 3s only
+       - Never spawn both at same time
+       - Lethargy: granny speed -35% for 10s
+       - Brisk: player speed +25% for 5s
+       ------------------------- */
+    function spawnPotionRandomly(){
+      // schedule next spawn in 4-10s
+      const next = randInt(4000, 10000);
+      potionSpawnTimer = setTimeout(() => {
+        if (gameOver) return;
+        // choose which potion to spawn (but not both)
+        const spawnL = Math.random() < 0.5;
+        if (spawnL && pB.dataset.active !== 'true'){
+          spawnPotion(pL, 'lethargy');
+        } else if (!spawnL && pL.dataset.active !== 'true'){
+          spawnPotion(pB, 'brisk');
+        } else {
+          // fallback: spawn whichever is free
+          if (pL.dataset.active !== 'true') spawnPotion(pL, 'lethargy');
+          else if (pB.dataset.active !== 'true') spawnPotion(pB, 'brisk');
+        }
+        // schedule next spawn after this one finishes
+        spawnPotionRandomly();
+      }, next);
+    }
+
+    function spawnPotion(el, type){
+      // place at random free spot (not overlapping walls or door)
+      const maxAttempts = 30;
+      let placed = false;
+      for (let i=0;i<maxAttempts;i++){
+        const x = randInt(10, GAME_W - 40);
+        const y = randInt(10, GAME_H - 40);
+        // quick check: not inside wall or door or containers
+        const collides = walls.some(w => {
+          const wx = parseInt(w.style.left), wy = parseInt(w.style.top);
+          const ww = w.offsetWidth, wh = w.offsetHeight;
+          return x < wx + ww && x + 28 > wx && y < wy + wh && y + 28 > wy;
+        });
+        const doorX = parseInt(doorEl.style.left) || (GAME_W - 36);
+        const doorY = parseInt(doorEl.style.top) || (GAME_H/2 - 30);
+        if (collides) continue;
+        if (dist(x,y,doorX,doorY) < 60) continue;
+        // place
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+        el.style.display = 'flex';
+        el.dataset.active = 'true';
+        placed = true;
+        break;
+      }
+      if (!placed) return;
+      // potion visible for 7s
+      setTimeout(() => {
+        // if not collected, hide
+        if (el.dataset.active === 'true'){
+          hidePotion(el);
+        }
+      }, 7000);
+    }
+
+    function hidePotion(el){
+      el.style.display = 'none';
+      el.dataset.active = 'false';
+    }
+
+    function checkPotions(){
+      // check player touching potions
+      [ {el:pL, type:'lethargy'}, {el:pB, type:'brisk'} ].forEach(obj => {
+        const el = obj.el;
+        if (el.dataset.active === 'true'){
+          const px = parseInt(el.style.left), py = parseInt(el.style.top);
+          if (dist(player.x, player.y, px, py) < SIZE){
+            // collect
+            el.dataset.active = 'collected';
+            hidePotion(el);
+            if (obj.type === 'lethargy'){
+              applyLethargy();
+            } else {
+              applyBrisk();
+            }
+          }
+        }
+      });
+    }
+
+    function applyLethargy(){
+      if (potionActive.lethargy) return; // already active
+      potionActive.lethargy = true;
+      grannySpeed = grannySpeed * (1 - 0.35);
+      ensureSpeedOrder();
+      message.textContent = "Granny slowed by potion of lethargy (-35%) for 10s";
+      showNotification('🔮 POTION OF LETHARGY! 🔮\nGranny is slowed!', 2500);
+      updateScoreboard();
+      potionTimers.lethargy = setTimeout(() => {
+        potionActive.lethargy = false;
+        // restore granny speed relative to base and lights
+        grannySpeed = BASE_GRANNY_SPEED * (lightsOff ? 1.5 : 1);
+        if (potionActive.lethargy) grannySpeed *= (1 - 0.35);
+        ensureSpeedOrder();
+        message.textContent = "Lethargy wore off.";
+        updateScoreboard();
+      }, 10000);
+    }
+
+    function applyBrisk(){
+      if (potionActive.brisk) return;
+      potionActive.brisk = true;
+      playerSpeed = playerSpeed * (1 + 0.25);
+      ensureSpeedOrder();
+      message.textContent = "You feel brisk! (+25%) for 5s";
+      showNotification('⚡ POTION OF BRISK! ⚡\nYou are FASTER!', 2500);
+      updateScoreboard();
+      potionTimers.brisk = setTimeout(() => {
+        potionActive.brisk = false;
+        // restore player speed relative to base and lights
+        playerSpeed = BASE_PLAYER_SPEED * (lightsOff ? 0.75 : 1);
+        if (potionActive.brisk) playerSpeed *= 1.25;
+        ensureSpeedOrder();
+        message.textContent = "Brisk wore off.";
+        updateScoreboard();
+      }, 5000);
+    }
+
+    /* -------------------------
+       Lights off mechanic
+       - Randomly go dark for 5s
+       - During dark: grannySpeed *1.5, playerSpeed *0.75
+       - Ensure playerSpeed > grannySpeed always
+       ------------------------- */
+    function scheduleLights(){
+      // schedule random blackout between 6-18s
+      const next = randInt(6000, 18000);
+      setTimeout(() => {
+        if (gameOver) return;
+        goDark();
+        // after 5s, restore
+        setTimeout(() => {
+          restoreLights();
+          scheduleLights();
+        }, 5000);
+      }, next);
+    }
+
+    function goDark(){
+      lightsOff = true;
+      darkOverlay.style.opacity = 0.97;
+      // adjust speeds relative to current base/potion state
+      // compute base effective speeds first
+      let effectivePlayerBase = BASE_PLAYER_SPEED * (potionActive.brisk ? 1.25 : 1);
+      let effectiveGrannyBase = BASE_GRANNY_SPEED * (potionActive.lethargy ? (1 - 0.35) : 1);
+      // apply dark modifiers
+      playerSpeed = effectivePlayerBase * 0.75;
+      grannySpeed = effectiveGrannyBase * 1.5;
+      ensureSpeedOrder();
+      message.textContent = "Lights out! Granny speeds up, you slow down.";
+      updateScoreboard();
+    }
+
+    function restoreLights(){
+      lightsOff = false;
+      darkOverlay.style.opacity = 0;
+      // reset to base plus active potion modifiers
+      playerSpeed = BASE_PLAYER_SPEED * (potionActive.brisk ? 1.25 : 1);
+      grannySpeed = BASE_GRANNY_SPEED * (potionActive.lethargy ? (1 - 0.35) : 1);
+      ensureSpeedOrder();
+      message.textContent = "Lights back on.";
+      updateScoreboard();
+    }
+
+    /* -------------------------
+       Ensure player's speed always > granny's speed
+       - If not, slightly increase player speed to maintain margin
+       ------------------------- */
+    function ensureSpeedOrder(){
+      // ensure playerSpeed > grannySpeed by at least 0.5
+      if (playerSpeed <= grannySpeed){
+        playerSpeed = grannySpeed + 0.5;
+      }
+      updateScoreboard();
+    }
+
+    /* -------------------------
+       Scoreboard update
+       ------------------------- */
+    function updateScoreboard(){
+      scoreboard.textContent = `Keys: ${keysCollected} | Time: ${timeSurvived}s | Player: ${playerSpeed.toFixed(1)} | Granny: ${grannySpeed.toFixed(2)}`;
+    }
+
+    /* -------------------------
+       Final win/lose handling
+       ------------------------- */
+    function showFinal(won){
+      // show random quote on win or message on lose
+      if (won){
+        const q = QUOTES[randInt(0, QUOTES.length - 1)];
+        quotesEl.textContent = q;
+      } else {
+        quotesEl.textContent = "Try again — Granny's not done yet.";
+      }
+      // stop timers & interactions
+      clearTimeout(potionSpawnTimer);
+    }
+
+    /* -------------------------
+       Game loop
+       ------------------------- */
+    // movement tick: 60fps-ish
+    const TICK_MS = 50;
+    const tick = () => {
+      if (!gameOver){
+        // move player from input
+        movePlayerFromInput();
+        // move granny
+        moveGranny();
+        // update DOM
+        updatePositions();
+        // check interactions
+        checkContainers();
+        checkPotions();
+        checkDoor();
+        checkCollision();
+      }
+    };
+    const loop = setInterval(tick, TICK_MS);
+
+    // survival timer
+    setInterval(() => {
+      if (!gameOver){
+        timeSurvived++;
+        updateScoreboard();
+      }
+    }, 1000);
+
+    /* -------------------------
+       Input handling
+       ------------------------- */
+    window.addEventListener('keydown', (e) => {
+      if (['w','s','a','d','W','S','A','D'].includes(e.key)){
+        keysDown[e.key.toLowerCase()] = true;
+        e.preventDefault();
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      if (['w','s','a','d','W','S','A','D'].includes(e.key)){
+        keysDown[e.key.toLowerCase()] = false;
+        e.preventDefault();
+      }
+    });
+
+    /* -------------------------
+       Joystick handling (for mobile/touch)
+       ------------------------- */
+    function setupJoystick(){
+      if (!isMobile) return;
+      joystickEl.style.display = 'flex';
+      joystickEl.style.alignItems = 'center';
+      joystickEl.style.justifyContent = 'center';
+
+      const handleJoystickStart = (e) => {
+        joystickActive = true;
+        updateJoystickPosition(e);
+      };
+
+      const handleJoystickMove = (e) => {
+        if (!joystickActive) return;
+        updateJoystickPosition(e);
+      };
+
+      const handleJoystickEnd = (e) => {
+        joystickActive = false;
+        joystickX = 0;
+        joystickY = 0;
+        joystickThumb.style.transform = 'translate(-50%, -50%)';
+        keysDown.w = keysDown.s = keysDown.a = keysDown.d = false;
+      };
+
+      function updateJoystickPosition(e){
+        e.preventDefault();
+        const touch = e.touches ? e.touches[0] : e;
+        const rect = joystickEl.getBoundingClientRect();
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const x = touch.clientX - rect.left - centerX;
+        const y = touch.clientY - rect.top - centerY;
+        const distance = Math.hypot(x, y);
+        const maxDistance = rect.width / 2 - 25;
+
+        if (distance > maxDistance){
+          joystickX = (x / distance) * maxDistance;
+          joystickY = (y / distance) * maxDistance;
+        } else {
+          joystickX = x;
+          joystickY = y;
+        }
+
+        joystickThumb.style.transform = `translate(calc(-50% + ${joystickX}px), calc(-50% + ${joystickY}px))`;
+
+        // Update key states based on joystick direction
+        keysDown.w = joystickY < -15;
+        keysDown.s = joystickY > 15;
+        keysDown.a = joystickX < -15;
+        keysDown.d = joystickX > 15;
+      }
+
+      joystickEl.addEventListener('touchstart', handleJoystickStart, false);
+      joystickEl.addEventListener('touchmove', handleJoystickMove, false);
+      joystickEl.addEventListener('touchend', handleJoystickEnd, false);
+      joystickEl.addEventListener('mousedown', handleJoystickStart, false);
+      joystickEl.addEventListener('mousemove', handleJoystickMove, false);
+      joystickEl.addEventListener('mouseup', handleJoystickEnd, false);
+      joystickEl.addEventListener('mouseleave', handleJoystickEnd, false);
+    }
+    setupJoystick();
+
+    /* -------------------------
+       Potion & lights scheduling start
+       ------------------------- */
+    spawnPotionRandomly();
+    scheduleLights();
+
+    /* -------------------------
+       Ensure door position is set (right border)
+       ------------------------- */
+    doorEl.style.left = (GAME_W - 36) + 'px';
+    doorEl.style.top = (GAME_H/2 - 30) + 'px';
+
+    /* -------------------------
+       Start state update & initial render
+       ------------------------- */
+    updatePositions();
+    updateScoreboard();
+
+    /* -------------------------
+       Accessibility: clicking outside popup closes it (but granny still chases)
+       ------------------------- */
+    game.addEventListener('click', (e) => {
+      // if popup open and click outside popup, close it
+      if (popupOpen && !popup.contains(e.target)){
+        closePopup();
+      }
+    });
+
+    /* -------------------------
+       Ensure containers are not overlapping walls at start
+       ------------------------- */
+    function safePlaceContainers(){
+      containers.forEach(c => {
+        let attempts = 0;
+        while (attempts < 30){
+          const x = parseInt(c.style.left);
+          const y = parseInt(c.style.top);
+          const collides = walls.some(w => {
+            const wx = parseInt(w.style.left), wy = parseInt(w.style.top);
+            const ww = w.offsetWidth, wh = w.offsetHeight;
+            return x < wx + ww && x + SIZE > wx && y < wy + wh && y + SIZE > wy;
+          });
+          if (!collides) break;
+          // nudge
+          c.style.left = clamp(randInt(10, GAME_W - 40), 10, GAME_W - 40) + 'px';
+          c.style.top = clamp(randInt(10, GAME_H - 40), 10, GAME_H - 40) + 'px';
+          attempts++;
+        }
+      });
+    }
+    safePlaceContainers();
+
+    // Wire regenerate button to recreate map and reset key state
+    const regenBtn = document.getElementById('regenBtn');
+    if (regenBtn){
+      regenBtn.addEventListener('click', () => {
+        // regenerate obstacles
+        generateRandomWalls();
+        // reposition containers away from new walls
+        safePlaceContainers();
+        // reset player and granny to spawn positions
+        player.x = 100; player.y = 100;
+        granny.x = 1000; granny.y = 450;
+        // reset collected keys and popup
+        keysCollected = 0;
+        collectedDigits = [];
+        digitsOriginalOrder = [];
+        closePopup();
+        updatePositions();
+        updateScoreboard();
+        message.textContent = 'Map regenerated.';
+      });
+    }
+
+    /* -------------------------
+       Clean up on page unload
+       ------------------------- */
+    window.addEventListener('beforeunload', () => {
+      clearInterval(loop);
+      clearTimeout(potionSpawnTimer);
+    });
+
+    /* -------------------------
+       Final note:
+       - Changes requested:
+         * Popup appears ONLY when player touches the main door (collision).
+         * wallA (lighter obstacles) can be crossed by Granny in light, but block Granny in dark.
+         * All previously implemented features remain unchanged.
+       ------------------------- */
+  </script>
+</body>
+</html>
