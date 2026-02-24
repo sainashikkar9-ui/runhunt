@@ -292,11 +292,12 @@ Remember that in any condition of above, the granny's speed should not be >= use
         align-items:center;
         width:100vw;
       }
+      /* let JS set exact pixel sizes using the viewport for best fit on Android */
       #game{
-        width:96vw !important;
+        width:100vw !important;
         aspect-ratio:2/1 !important;
         height:auto !important;
-        max-height:72vh !important;
+        max-height:100vh !important;
         max-width:100%;
       }
       #hud{
@@ -313,9 +314,9 @@ Remember that in any condition of above, the granny's speed should not be >= use
     @media (max-width:600px){
       h2{ font-size:16px; margin:5px 0; }
       #game{
-        width:98vw !important;
+        width:100vw !important;
         aspect-ratio:2/1 !important;
-        max-height:78vh !important;
+        max-height:100vh !important;
       }
       #hud{
         width:95vw;
@@ -386,6 +387,9 @@ Remember that in any condition of above, the granny's speed should not be >= use
     <!-- Achievement Notification -->
     <div id="notification"></div>
 
+    <!-- Restart button shown on game over -->
+    <button id="restartBtn" style="display:none;padding:10px 14px;background:#ff4d4d;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;">Restart Game</button>
+
     <!-- HUD / side panel -->
     <div id="hud">
       <div id="message">Collect 3 hidden containers (get digits), then touch the door to solve the code. Granny never stops.</div>
@@ -423,8 +427,22 @@ Remember that in any condition of above, the granny's speed should not be >= use
 
     // Update size variables based on current rendered game area.
     function updateSizes(){
-      GAME_W = Math.max(200, game.clientWidth);
-      GAME_H = Math.max(120, game.clientHeight);
+      // Prefer using the real viewport size so the game fills mobile screens precisely
+      const vw = Math.max(200, window.innerWidth || document.documentElement.clientWidth);
+      const vh = Math.max(120, window.innerHeight || document.documentElement.clientHeight);
+      // target aspect ratio 2:1 (width:height)
+      let targetW = Math.min(1100, vw);
+      let targetH = Math.round(targetW / 2);
+      // if target height is too tall to fit viewport, shrink to fit vertically
+      if (targetH > Math.round(vh - 20)){
+        targetH = Math.round(vh - 20);
+        targetW = targetH * 2;
+      }
+      // apply size to game element to ensure it fits Android viewport exactly
+      game.style.width = targetW + 'px';
+      game.style.height = targetH + 'px';
+      GAME_W = targetW;
+      GAME_H = targetH;
       // entity size scaled to viewport (min 28px)
       SIZE = Math.max(28, Math.round(Math.min(GAME_W, GAME_H) * 0.08));
       document.documentElement.style.setProperty('--player-size', SIZE + 'px');
@@ -891,6 +909,14 @@ Remember that in any condition of above, the granny's speed should not be >= use
       shuffleDisplayed();
     });
 
+    // wire restart button
+    const restartBtn = document.getElementById('restartBtn');
+    if (restartBtn){
+      restartBtn.addEventListener('click', () => {
+        resetGame();
+      });
+    }
+
     /* -------------------------
        Potions spawning & effects
        - Potions appear randomly for 3s only
@@ -1095,6 +1121,82 @@ Remember that in any condition of above, the granny's speed should not be >= use
       }
       // stop timers & interactions
       clearTimeout(potionSpawnTimer);
+      // hide HUD restart button (we'll show restart on the popup)
+      const restartBtn = document.getElementById('restartBtn');
+      if (restartBtn) restartBtn.style.display = 'none';
+
+      // Show persistent notification popup with restart
+      const note = document.getElementById('notification');
+      if (note){
+        // build message
+        const msg = won ? '🎉 YOU WON! 🎉<br>CONGRATULATIONS!<br>You escaped!' : '💀 YOU DIED! 💀<br>Granny caught you!';
+        note.innerHTML = `<div style="white-space:pre-wrap; text-align:center;">${msg}</div>`;
+        const btn = document.createElement('button');
+        btn.textContent = 'Restart Game';
+        btn.style.marginTop = '12px';
+        btn.style.padding = '8px 12px';
+        btn.style.background = '#ff4d4d';
+        btn.style.color = '#fff';
+        btn.style.border = 'none';
+        btn.style.borderRadius = '8px';
+        btn.style.cursor = 'pointer';
+        btn.id = 'noteRestart';
+        btn.addEventListener('click', () => {
+          note.style.display = 'none';
+          resetGame();
+        });
+        note.appendChild(btn);
+        note.style.display = 'block';
+      }
+    }
+
+    function resetGame(){
+      // hide restart button
+      const restartBtn = document.getElementById('restartBtn');
+      if (restartBtn) restartBtn.style.display = 'none';
+
+      // reset state
+      gameOver = false;
+      timeSurvived = 0;
+      keysCollected = 0;
+      collectedDigits = [];
+      digitsOriginalOrder = [];
+
+      // reset containers
+      containers.forEach(c => {
+        c.dataset.collected = 'false';
+        c.style.opacity = 1;
+        c.style.transform = '';
+        c.style.display = 'none';
+      });
+
+      // reset potions
+      potionActive.lethargy = false; potionActive.brisk = false;
+      if (pL){ hidePotion(pL); }
+      if (pB){ hidePotion(pB); }
+      clearTimeout(potionTimers.lethargy); potionTimers.lethargy = 0;
+      clearTimeout(potionTimers.brisk); potionTimers.brisk = 0;
+
+      // reset positions
+      player.x = 100; player.y = 100;
+      granny.x = Math.min(1000, GAME_W - SIZE - 10); granny.y = Math.min(450, GAME_H - SIZE - 10);
+
+      // reset lights
+      lightsOff = false; darkOverlay.style.opacity = 0;
+
+      // reset speeds
+      playerSpeed = BASE_PLAYER_SPEED;
+      grannySpeed = BASE_GRANNY_SPEED;
+      ensureSpeedOrder();
+
+      // update UI
+      updatePositions();
+      updateScoreboard();
+      message.textContent = 'Game restarted. Good luck!';
+
+      // restart potions & lights scheduling
+      spawnPotionRandomly();
+      scheduleLights();
     }
 
     /* -------------------------
@@ -1147,7 +1249,11 @@ Remember that in any condition of above, the granny's speed should not be >= use
        Joystick handling (for mobile/touch)
        ------------------------- */
     function setupJoystick(){
-      if (!isMobile) return;
+      // Show joystick only on mobile devices (phone/tablet) to avoid clutter on desktop
+      if (!isMobile){
+        joystickEl.style.display = 'none';
+        return;
+      }
       joystickEl.style.display = 'flex';
       joystickEl.style.alignItems = 'center';
       joystickEl.style.justifyContent = 'center';
@@ -1224,7 +1330,7 @@ Remember that in any condition of above, the granny's speed should not be >= use
           joystickY = y;
         }
 
-        joystickThumb.style.transform = `translate(calc(-50% + ${joystickX}px), calc(-50% + ${joystickY}px))`;
+        joystickThumb.style.transform = `translate3d(calc(-50% + ${joystickX}px), calc(-50% + ${joystickY}px), 0)`;
 
         // Update key states based on joystick direction
         const dead = 12; // smaller dead zone for responsiveness
@@ -1233,6 +1339,13 @@ Remember that in any condition of above, the granny's speed should not be >= use
         keysDown.a = joystickX < -dead;
         keysDown.d = joystickX > dead;
       }
+
+      // While joystick active, prevent page scrolling on touchmove (important for Android Chrome)
+      document.addEventListener('touchmove', (ev) => {
+        if (joystickActive){
+          ev.preventDefault();
+        }
+      }, { passive: false });
 
       // Touch listeners with passive:false so we can call preventDefault on Android
       joystickEl.addEventListener('touchstart', handleJoystickStart, { passive: false });
