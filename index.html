@@ -172,6 +172,7 @@ Remember that in any condition of above, the granny's speed should not be >= use
       border:2px solid #0ff;
       border-radius:50%;
       pointer-events:auto;
+      touch-action: none;
     }
     #joystickThumb{
       position:absolute;
@@ -184,6 +185,7 @@ Remember that in any condition of above, the granny's speed should not be >= use
       left:50%;
       transform:translate(-50%, -50%);
       pointer-events:auto;
+      touch-action: none;
     }
 
     /* Achievement notification */
@@ -1196,13 +1198,33 @@ Remember that in any condition of above, the granny's speed should not be >= use
         keysDown.d = joystickX > 15;
       }
 
-      joystickEl.addEventListener('touchstart', handleJoystickStart, false);
-      joystickEl.addEventListener('touchmove', handleJoystickMove, false);
-      joystickEl.addEventListener('touchend', handleJoystickEnd, false);
+      // Touch listeners with passive:false so we can call preventDefault on Android
+      joystickEl.addEventListener('touchstart', handleJoystickStart, { passive: false });
+      joystickEl.addEventListener('touchmove', handleJoystickMove, { passive: false });
+      joystickEl.addEventListener('touchend', handleJoystickEnd, { passive: false });
+      // Also listen on the thumb so touches starting on the thumb are handled
+      joystickThumb.addEventListener('touchstart', handleJoystickStart, { passive: false });
+      joystickThumb.addEventListener('touchmove', handleJoystickMove, { passive: false });
+      joystickThumb.addEventListener('touchend', handleJoystickEnd, { passive: false });
+
+      // Pointer events (unified for mouse/touch/stylus) as a fallback / improvement
+      joystickEl.addEventListener('pointerdown', handleJoystickStart, false);
+      joystickEl.addEventListener('pointermove', handleJoystickMove, false);
+      joystickEl.addEventListener('pointerup', handleJoystickEnd, false);
+      joystickEl.addEventListener('pointercancel', handleJoystickEnd, false);
+      joystickEl.addEventListener('pointerleave', handleJoystickEnd, false);
+      joystickThumb.addEventListener('pointerdown', handleJoystickStart, false);
+      joystickThumb.addEventListener('pointermove', handleJoystickMove, false);
+      joystickThumb.addEventListener('pointerup', handleJoystickEnd, false);
+
+      // Mouse events (desktop fallback)
       joystickEl.addEventListener('mousedown', handleJoystickStart, false);
       joystickEl.addEventListener('mousemove', handleJoystickMove, false);
       joystickEl.addEventListener('mouseup', handleJoystickEnd, false);
       joystickEl.addEventListener('mouseleave', handleJoystickEnd, false);
+      joystickThumb.addEventListener('mousedown', handleJoystickStart, false);
+      joystickThumb.addEventListener('mousemove', handleJoystickMove, false);
+      joystickThumb.addEventListener('mouseup', handleJoystickEnd, false);
     }
     setupJoystick();
 
